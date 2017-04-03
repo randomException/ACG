@@ -164,6 +164,9 @@ private:
     int									m_smResolutionLevel;
     int									m_smResolutionLevelPrev;
 
+    // EXTRA
+    bool								m_percentageCloserFilter;
+
     GLuint								m_rttFBO;
     GLuint								m_rttDepth;
     GLuint								m_rttTex;

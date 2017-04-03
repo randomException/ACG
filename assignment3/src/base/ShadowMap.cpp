@@ -117,6 +117,10 @@ void LightSource::renderShadowedScene(GLContext *gl, MeshWithColors *scene, cons
 
                 uniform float pi;
 
+                // EXTRA
+                uniform bool percentageCloserFilter;
+                uniform vec2 shadowmapResolution;
+
                 // Contains the texture unit that has the shadow map:
                 uniform sampler2D shadowSampler;
 
@@ -190,33 +194,37 @@ void LightSource::renderShadowedScene(GLContext *gl, MeshWithColors *scene, cons
                     // use x,y to get texture point and compare the scaled z (z / w) to scaled NDC z. 
                     //textuurista coordinaatista x,y vertaa z ndc:n uuteen skaalattuun z:aan
                     float avgShadow = 0;
-                    for (float y = -1.5; y <= 1.5; y += 1.0) {
-                        for (float x = -1.5; x <= 1.5; x += 1.0) {
-                            vec2 offset = vec2(1.0f / 256.0f * x, 1.0f / 256.0f * y);
 
-                            vec4 shadowInfo = texture2D(shadowSampler, scaledNDC.xy + offset);
-                            float z = shadowInfo.z;
-                            z = z * 2 - 1;
+                    if (percentageCloserFilter) {
+                        for (float y = -1.5; y <= 1.5; y += 1.0) {
+                            for (float x = -1.5; x <= 1.5; x += 1.0) {
+                                vec2 offset = vec2(1.0f / shadowmapResolution.x * x, 1.0f / shadowmapResolution.y * y);
 
-                            float shadow = 1.0;
-                            if (NDC.z > z) {
-                                shadow = 0;
+                                vec4 shadowInfo = texture2D(shadowSampler, scaledNDC.xy + offset);
+                                float z = shadowInfo.z;
+                                z = z * 2 - 1;
+
+                                float shadow = 1.0;
+                                if (NDC.z > z) {
+                                    shadow = 0;
+                                }
+
+                                avgShadow = avgShadow + shadow;
                             }
+                        }
 
-                            avgShadow = avgShadow + shadow;
+                        avgShadow = avgShadow / 16.0f;
+                    }
+                    else {
+                        vec4 shadowInfo = texture2D(shadowSampler, scaledNDC.xy);
+                        float z = shadowInfo.z;
+                        z = z * 2 - 1;
+
+                        avgShadow = 1.0;
+                        if (NDC.z > z) {
+                            avgShadow = 0;
                         }
                     }
-
-                    avgShadow = avgShadow / 16.0f;
-                    
-                    /*vec4 shadowInfo = texture2D(shadowSampler, scaledNDC.xy);
-                    float z = shadowInfo.z;
-                    z = z * 2 - 1;
-
-                    float shadow = 1.0;
-                    if (NDC.z > z) {
-                        shadow = 0;
-                    }*/
 
                     diffuseColor.rgb *= shading * avgShadow * cone;
 
@@ -252,7 +260,8 @@ void LightSource::renderShadowedScene(GLContext *gl, MeshWithColors *scene, cons
     gl->setUniform(prog->getUniformLoc("renderFromLight"), fromLight);
 
     // EXTRA
-    //gl->setUniform(prog->getUniformLoc("shadowmapResolution"), m_sha);
+    gl->setUniform(prog->getUniformLoc("percentageCloserFilter"), m_percentageCloserFilter);
+    gl->setUniform(prog->getUniformLoc("shadowmapResolution"), m_resolution);
 
     gl->setUniform(prog->getUniformLoc("pi"), FW_PI);
 

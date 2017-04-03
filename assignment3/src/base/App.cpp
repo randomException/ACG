@@ -90,6 +90,11 @@ App::App(std::vector<std::string>& cmd_args)
 	m_commonCtrl.addToggle(&m_renderFromLight, FW_KEY_NONE, "Render from light source view" );
 	m_commonCtrl.addToggle(&m_visualizeLight, FW_KEY_NONE, "Visualize main light source" );
 	m_commonCtrl.addToggle(&m_visualizeIndirect, FW_KEY_NONE, "Visualize indirect light sources" );
+
+    // EXTRA
+    m_commonCtrl.addSeparator();
+    m_commonCtrl.addToggle(&m_percentageCloserFilter, FW_KEY_NONE, "Percentage closer filter");
+
 	m_commonCtrl.beginSliderStack();
 	m_commonCtrl.addSlider(&m_smResolutionLevel, 1, 11, false, FW_KEY_NONE, FW_KEY_NONE, "Shadow map resolution= 2^%d");
 	m_commonCtrl.addSlider(&m_num_indirect, 0, 256, false, FW_KEY_NONE, FW_KEY_NONE, "Number of indirect lights= %d");
@@ -116,6 +121,9 @@ App::App(std::vector<std::string>& cmd_args)
 	m_visualizeIndirect = false;
 	m_renderFromLight = false;
 	m_instantRadiosity.setup(m_window.getGL(), Vec2i(256, 256));
+
+    // EXTRA
+    m_percentageCloserFilter = false;
 
 	m_smcontext.setup(Vec2i(1024, 1024));
 	m_lightFOV = 80;
@@ -522,6 +530,10 @@ void App::renderFrame(GLContext* gl)
 	if (m_smResolutionLevelPrev != m_smResolutionLevel)
 		m_instantRadiosity.setup(gl, Vec2i(1 << m_smResolutionLevel, 1 << m_smResolutionLevel));	// power-of-two trick
 	m_smResolutionLevelPrev = m_smResolutionLevel;
+
+    // EXTRA
+    m_lightSource->setPercentageCloserFilter(m_percentageCloserFilter);
+    m_lightSource->setResolution(Vec2i(1 << m_smResolutionLevel, 1 << m_smResolutionLevel));
 
 	// Cast the indirect light sources from the main light source using the raytracer
 	m_instantRadiosity.castIndirect(m_rt.get(), m_mesh.get(), *m_lightSource, m_num_indirect);

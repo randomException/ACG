@@ -87,6 +87,10 @@ public:
 	float			getNear(void) const				{ return m_near; }
 	void			setNear(float n)				{ m_near = n; }
 
+    // EXTRA
+    void			setPercentageCloserFilter(bool enabled) { m_percentageCloserFilter = enabled; }
+    void			setResolution(Vec2i res) { m_resolution = res; }
+
 	
 	void			draw( const Mat4f& worldToCamera, const Mat4f& projection, bool show_axis = false, bool show_frame = false, bool show_square = false); // for visualization
 
@@ -118,6 +122,10 @@ protected:
 
 	bool	m_enabled;  // Is the light on, i.e. will we bother to render with it?
 	GLuint	m_shadowMapTexture; // OpenGL texture handle
+
+    // EXTRA
+    bool m_percentageCloserFilter;
+    Vec2i m_resolution;
 
 };
 
