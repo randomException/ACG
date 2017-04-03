@@ -20,6 +20,9 @@ R1 Integrate your raytracer (1p): done
 
 (Describe what you did and, if there was a substantial amount of work involved, how you did it. If your extra features are interactive or can be toggled, describe how to use them.)
 
+- Percentage Closer Filter
+	- The filter can be enabled/disabled from the bottom of the UI buttons ("Percentage closer filter").
+
 # Are there any known problems/bugs remaining in your code?
 
 (Please provide a list of the problems. If possible, describe what you think the cause is, how you have attempted to diagnose or fix the problem, and how you would attempt to diagnose or fix it if you had more time or motivation. This is important: we are more likely to assign partial credit if you help us understand what's going on.)
@@ -27,6 +30,7 @@ R1 Integrate your raytracer (1p): done
 # Did you collaborate with anyone in the class?
 
 (Did you help others? Did others help you? Let us know who you talked to, and what sort of help you gave or received.)
+
 Collaborated with Satria Sutisna. Helped each other with bugs.
 
 # Any other comments you'd like to share about the assignment or the course so far?
