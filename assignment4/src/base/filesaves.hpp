@@ -3,10 +3,22 @@
 #include "util.hpp"
 
 /*
- * Utilities for value transport to hierarchy files as binary data
- */
+* Utilities for value transport to hierarchy files as binary data
+*/
 
 #include <iostream>
+
+#include <fstream>
+// Write a simple data type to a stream.
+template<class T>
+std::ostream& write(std::ostream& stream, const T& x) {
+    return stream.write(reinterpret_cast<const char*>(&x), sizeof(x));
+}
+// Read a simple data type from a stream.
+template<class T>
+std::istream& read(std::istream& os, T& x) {
+    return os.read(reinterpret_cast<char*>(&x), sizeof(x));
+}
 
 template <class T>
 std::ostream& filesave(std::ostream& os, const T& x) {

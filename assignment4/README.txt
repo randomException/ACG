@@ -1,17 +1,17 @@
-# ME-E4100 Advanced Computer Graphics, Spring 2017
+﻿# ME-E4100 Advanced Computer Graphics, Spring 2017
 # Lehtinen / Härkönen, Ollikainen
 #
 # Assignment 4: Path Tracing
 
-Student name:
-Student number:
+Student name: Valtteri Wahlroos
+Student number: 357096
 
 # Which parts of the assignment did you complete? Mark them 'done'.
 # You can also mark non-completed parts as 'attempted' if you spent a fair amount of
 # effort on them. If you do, explain the work you did in the problems/bugs section
 # and leave your 'attempt' code in place (commented out if necessary) so we can see it.
 
-R1 Integrate your raytracer (1p): not done
+R1 Integrate your raytracer (1p): done
   R2 Direct light & shadows (2p): not done
   R3 Bounced indirect light (5p): not done
         R4 Russian roulette (2p): not done
@@ -35,6 +35,7 @@ Remember the other mandatory deliverables!
 # Did you collaborate with anyone in the class?
 
 (Did you help others? Did others help you? Let us know who you talked to, and what sort of help you gave or received.)
+Collaborated with Satria Sutisna, helped each other with bugs.
 
 # Any other comments you'd like to share about the assignment or the course overall?
 

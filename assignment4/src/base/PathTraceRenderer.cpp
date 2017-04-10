@@ -21,6 +21,27 @@ namespace FW {
 		// Read value from albedo texture into diffuse.
 	    // If textured, use the texture; if not, use Material.diffuse.
 	    // Note: You can probably reuse parts of the radiosity assignment.
+
+        if (mat->textures[MeshBase::TextureType_Diffuse].exists())
+        {
+            Vec2f uv = (1 - hit.u - hit.v) * hit.tri->m_vertices[0].t
+                + hit.u * hit.tri->m_vertices[1].t
+                + hit.v * hit.tri->m_vertices[2].t;
+
+            const Texture& tex = mat->textures[MeshBase::TextureType_Diffuse];
+            const Image& teximg = *tex.getImage();
+
+            Vec2i texelCoords = getTexelCoords(uv, teximg.getSize());
+            diffuse = teximg.getVec4f(texelCoords).getXYZ();
+
+        }
+        else
+        {
+            // no texture, use constant albedo from material structure.
+            // (this is just one line)
+            diffuse = mat->diffuse.getXYZ();
+        }
+
 	}
 
 

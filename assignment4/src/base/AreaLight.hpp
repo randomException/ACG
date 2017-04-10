@@ -41,6 +41,8 @@ public:
     void			readState( StateDump& d )			{ d.pushOwner("areaLight"); d.get(m_xform,"xform"); d.get(m_size,"size"); d.get(m_E,"E"); d.popOwner(); }
     void			writeState( StateDump& d ) const	{ d.pushOwner("areaLight"); d.set(m_xform,"xform"); d.set(m_size,"size"); d.set(m_E,"E"); d.popOwner(); }
 
+    float           halton(int index, int base);
+
 protected:
     Mat4f	m_xform;	// Encodes position and orientation in world space.
     Vec2f	m_size;		// Physical size of the emitter from the center of the light. I.e. half of the total width/height.
