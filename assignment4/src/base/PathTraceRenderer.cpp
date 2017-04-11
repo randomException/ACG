@@ -32,14 +32,18 @@ namespace FW {
             const Image& teximg = *tex.getImage();
 
             Vec2i texelCoords = getTexelCoords(uv, teximg.getSize());
-            diffuse = teximg.getVec4f(texelCoords).getXYZ();
+            
+            diffuse.x = FW::pow(teximg.getVec4f(texelCoords).x, 2.2f);
+            diffuse.y = FW::pow(teximg.getVec4f(texelCoords).y, 2.2f);
+            diffuse.z = FW::pow(teximg.getVec4f(texelCoords).z, 2.2f);
 
         }
         else
         {
             // no texture, use constant albedo from material structure.
-            // (this is just one line)
-            diffuse = mat->diffuse.getXYZ();
+            diffuse.x = FW::pow(mat->diffuse.x, 1.0f);
+            diffuse.y = FW::pow(mat->diffuse.y, 1.0f);
+            diffuse.z = FW::pow(mat->diffuse.z, 1.0f);
         }
 
 	}
@@ -127,13 +131,73 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
 	Vec3f throughput(1, 1, 1);
 	float p = 1.0f;
 
+    int currentBounce = 0;
 	if (result.tri != nullptr)
 	{
 		// YOUR CODE HERE (R2-R4):
 		// Implement path tracing with direct light and shadows, scattering and Russian roulette.
+		//Ei = result.tri->m_material->diffuse.getXYZ(); // placeholder
+        
+        float pdf;
+        Vec3f point;
+        FW::Random rnd;
 
-		Ei = result.tri->m_material->diffuse.getXYZ(); // placeholder
+        ctx.m_light->sample(pdf, point, 0, rnd);
+        Vec3f shadowRay = point - result.point;
+        RaycastResult castedShadowRay = ctx.m_rt->raycast(result.point + shadowRay * 0.01f, shadowRay * 0.98f);
 
+        if (castedShadowRay.tri == nullptr && FW::dot(pHit->normal(), normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0)
+        {
+            getTextureParameters(result, Ei, pHit->normal(), pHit->m_material->specular);
+        }
+
+        // Bounced indirect light
+        while (true) {
+            currentBounce++;
+            if (currentBounce > ctx.m_bounces) {
+                break;
+            }
+
+
+            // Shoot new raycast
+            Mat3f B = formBasis(pHit->normal());
+
+            Vec2f vec2D = Vec2f(1, 1);
+            while (pow(vec2D.x, 2) + pow(vec2D.y, 2) > 1) {
+                vec2D = rnd.getVec2f(-1, 1);
+            }
+            float z = FW::sqrt(1 - pow(vec2D.x, 2) - pow(vec2D.y, 2));
+            Vec3f vec3D = Vec3f(vec2D.x, vec2D.y, z);
+
+            Vec3f dir = B * vec3D * 100;
+
+            RaycastResult raycastIndirect = ctx.m_rt->raycast(result.point + dir * 0.01f, dir);
+
+            if (raycastIndirect.tri != nullptr) {
+                // Shadow ray from indirect light
+
+                FW::Random random;
+                ctx.m_light->sample(pdf, point, 0, random);
+
+                shadowRay = point - raycastIndirect.point;
+
+                RaycastResult castedShadowRayIndirect = ctx.m_rt->raycast(result.point + shadowRay * 0.01f, shadowRay * 0.98f);
+                // trace shadow ray to see if it's blocked
+                if (castedShadowRayIndirect.tri == nullptr && FW::dot(pHit->normal(), normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0)
+                {
+                    Vec3f IndirectEi;
+                    getTextureParameters(raycastIndirect, IndirectEi, raycastIndirect.tri->normal(), raycastIndirect.tri->m_material->specular);
+                    // if not, add the appropriate emission, 1/r^2 and clamped cosine terms, accounting for the PDF as well.
+                    // accumulate into E
+                    float l = shadowRay.length();
+                    float cos_li = FW::dot(pHit->normal(), normalize(shadowRay));
+                    float cos_i = FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay));
+
+                    Ei += IndirectEi * cos_li * cos_i / (pow(l, 2) * pdf);
+                }
+                break;
+            }
+        }
 
 		if (debugVis)
 		{
