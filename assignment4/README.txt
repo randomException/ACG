@@ -12,7 +12,7 @@ Student number: 357096
 # and leave your 'attempt' code in place (commented out if necessary) so we can see it.
 
 R1 Integrate your raytracer (1p): done
-  R2 Direct light & shadows (2p): not done
+  R2 Direct light & shadows (2p): done
   R3 Bounced indirect light (5p): not done
         R4 Russian roulette (2p): not done
 

@@ -46,6 +46,8 @@ namespace FW {
             diffuse.z = FW::pow(mat->diffuse.z, 1.0f);
         }
 
+        diffuse /= FW_PI;
+
 	}
 
 
@@ -137,7 +139,7 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
 		// YOUR CODE HERE (R2-R4):
 		// Implement path tracing with direct light and shadows, scattering and Russian roulette.
 		//Ei = result.tri->m_material->diffuse.getXYZ(); // placeholder
-        
+
         float pdf;
         Vec3f point;
         FW::Random rnd;
@@ -149,10 +151,16 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
         if (castedShadowRay.tri == nullptr && FW::dot(pHit->normal(), normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0)
         {
             getTextureParameters(result, Ei, pHit->normal(), pHit->m_material->specular);
+            
+            float l = shadowRay.length();
+            float cos_li = FW::dot(pHit->normal(), normalize(shadowRay));
+            float cos_i = FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay));
+
+            Ei *= ctx.m_light->getEmission() * cos_li * cos_i / (pow(l, 2) * pdf);
         }
 
         // Bounced indirect light
-        while (true) {
+        /*while (true) {
             currentBounce++;
             if (currentBounce > ctx.m_bounces) {
                 break;
@@ -197,7 +205,7 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
                 }
                 break;
             }
-        }
+        }*/
 
 		if (debugVis)
 		{
