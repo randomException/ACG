@@ -13,8 +13,8 @@ Student number: 357096
 
 R1 Integrate your raytracer (1p): done
   R2 Direct light & shadows (2p): done
-  R3 Bounced indirect light (5p): not done
-        R4 Russian roulette (2p): not done
+  R3 Bounced indirect light (5p): done
+        R4 Russian roulette (2p): done
 
 Remember the other mandatory deliverables!
 - 6 images rendered with our default presets

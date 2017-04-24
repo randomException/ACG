@@ -41,12 +41,8 @@ namespace FW {
         else
         {
             // no texture, use constant albedo from material structure.
-            diffuse.x = FW::pow(mat->diffuse.x, 1.0f);
-            diffuse.y = FW::pow(mat->diffuse.y, 1.0f);
-            diffuse.z = FW::pow(mat->diffuse.z, 1.0f);
+            diffuse = mat->diffuse.getXYZ();
         }
-
-        diffuse /= FW_PI;
 
 	}
 
@@ -129,9 +125,18 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
 	const RTTriangle* pHit = result.tri;
 
 	// if we hit something, fetch a color and insert into image
-	Vec3f Ei;
+	Vec3f Ei = Vec3f(0, 0, 0);
 	Vec3f throughput(1, 1, 1);
 	float p = 1.0f;
+
+    float pdf;
+    float pdf_cos;
+    Vec3f lightPoint;
+    FW::Random rnd;
+
+    Vec3f diffuse;
+
+    float russianRoulette = 1.0f;
 
     int currentBounce = 0;
 	if (result.tri != nullptr)
@@ -140,36 +145,56 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
 		// Implement path tracing with direct light and shadows, scattering and Russian roulette.
 		//Ei = result.tri->m_material->diffuse.getXYZ(); // placeholder
 
-        float pdf;
-        Vec3f point;
-        FW::Random rnd;
+        ctx.m_light->sample(pdf, lightPoint, 0, rnd);
+        Vec3f shadowRay = lightPoint - result.point;
+        RaycastResult castedShadowRay = ctx.m_rt->raycast(result.point + shadowRay * 0.001f, shadowRay * 0.998f);
 
-        ctx.m_light->sample(pdf, point, 0, rnd);
-        Vec3f shadowRay = point - result.point;
-        RaycastResult castedShadowRay = ctx.m_rt->raycast(result.point + shadowRay * 0.01f, shadowRay * 0.98f);
-
-        if (castedShadowRay.tri == nullptr && FW::dot(pHit->normal(), normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0)
-        {
-            getTextureParameters(result, Ei, pHit->normal(), pHit->m_material->specular);
-            
-            float l = shadowRay.length();
-            float cos_li = FW::dot(pHit->normal(), normalize(shadowRay));
-            float cos_i = FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay));
-
-            Ei *= ctx.m_light->getEmission() * cos_li * cos_i / (pow(l, 2) * pdf);
+        Vec3f n = result.tri->normal();
+        if (FW::dot(n, result.dir) > 0) {
+            n = -n;
         }
 
+        getTextureParameters(result, diffuse, n, pHit->m_material->specular);
+        if (castedShadowRay.tri == nullptr && FW::dot(n, normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0)
+        {
+            float l = shadowRay.length();
+            float cos_li = FW::dot(n, normalize(shadowRay));
+            float cos_i = FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay));
+
+            Ei += ctx.m_light->getEmission() * diffuse * cos_li * cos_i / (pow(l, 2) * pdf * FW_PI);
+        }
+
+
         // Bounced indirect light
-        /*while (true) {
-            currentBounce++;
-            if (currentBounce > ctx.m_bounces) {
-                break;
+        while (currentBounce < FW::abs(ctx.m_bounces) || ctx.m_bounces < 0) {
+
+            if (debugVis)
+            {
+                // Example code for using the visualization system. You can expand this to include further bounces, 
+                // shadow rays, and whatever other useful information you can think of.
+                PathVisualizationNode node;
+                node.lines.push_back(PathVisualizationLine(result.orig, result.point)); // Draws a line between two points
+                node.lines.push_back(PathVisualizationLine(result.point, result.point + n * .1f, Vec3f(1, 0, 0))); // You can give lines a color as optional parameter.
+                node.labels.push_back(PathVisualizationLabel("diffuse: " + std::to_string(Ei.x) + ", " + std::to_string(Ei.y) + ", " + std::to_string(Ei.z), result.point)); // You can also render text labels with world-space locations.
+
+                visualization.push_back(node);
             }
 
 
-            // Shoot new raycast
-            Mat3f B = formBasis(pHit->normal());
+            currentBounce++;
 
+            // Russian Roulette
+            if (currentBounce > FW::abs(ctx.m_bounces) && ctx.m_bounces < 0) {
+                russianRoulette = 0.5f;
+                bool terminate = rnd.getF32(0, 1) < russianRoulette;
+                if (terminate) {
+                    break;
+                }
+            }
+
+            Mat3f B = formBasis(n);
+
+            // Uniform sampling
             Vec2f vec2D = Vec2f(1, 1);
             while (pow(vec2D.x, 2) + pow(vec2D.y, 2) > 1) {
                 vec2D = rnd.getVec2f(-1, 1);
@@ -177,49 +202,48 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
             float z = FW::sqrt(1 - pow(vec2D.x, 2) - pow(vec2D.y, 2));
             Vec3f vec3D = Vec3f(vec2D.x, vec2D.y, z);
 
-            Vec3f dir = B * vec3D * 100;
+            Vec3f dir = B * vec3D * 100000;
 
-            RaycastResult raycastIndirect = ctx.m_rt->raycast(result.point + dir * 0.01f, dir);
+            float theta = FW::dot(n, normalize(dir));
+            Vec3f BRDF = diffuse / FW_PI;
+            pdf_cos = theta / FW_PI;
+            throughput *= BRDF * theta / (pdf_cos * russianRoulette);
 
-            if (raycastIndirect.tri != nullptr) {
-                // Shadow ray from indirect light
 
-                FW::Random random;
-                ctx.m_light->sample(pdf, point, 0, random);
+            // new raycast
+            result = ctx.m_rt->raycast(result.point + dir * 0.00000001f, dir);
 
-                shadowRay = point - raycastIndirect.point;
+            // Ray hit a triangle
+            if (result.tri != nullptr) {
 
-                RaycastResult castedShadowRayIndirect = ctx.m_rt->raycast(result.point + shadowRay * 0.01f, shadowRay * 0.98f);
-                // trace shadow ray to see if it's blocked
-                if (castedShadowRayIndirect.tri == nullptr && FW::dot(pHit->normal(), normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0)
-                {
-                    Vec3f IndirectEi;
-                    getTextureParameters(raycastIndirect, IndirectEi, raycastIndirect.tri->normal(), raycastIndirect.tri->m_material->specular);
-                    // if not, add the appropriate emission, 1/r^2 and clamped cosine terms, accounting for the PDF as well.
-                    // accumulate into E
-                    float l = shadowRay.length();
-                    float cos_li = FW::dot(pHit->normal(), normalize(shadowRay));
-                    float cos_i = FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay));
-
-                    Ei += IndirectEi * cos_li * cos_i / (pow(l, 2) * pdf);
+                n = result.tri->normal();
+                if (FW::dot(n, result.dir) > 0) {
+                    n = -n;
                 }
+
+                // Shadow ray from indirect light
+                ctx.m_light->sample(pdf, lightPoint, 0, rnd);
+                shadowRay = lightPoint - result.point;
+
+                RaycastResult castedShadowRayIndirect = ctx.m_rt->raycast(result.point + shadowRay * 0.001f, shadowRay * 0.998f);
+                // trace shadow ray to see if it's blocked
+                if (castedShadowRayIndirect.tri == nullptr && FW::dot(n, normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0)
+                {
+                    getTextureParameters(result, diffuse, n, result.tri->m_material->specular);
+                    float l = shadowRay.length();
+                    float cos_li = FW::dot(n, normalize(shadowRay));
+                    float cos_i = FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay));
+                    Vec3f temp = throughput * ctx.m_light->getEmission() * diffuse * cos_li * cos_i / (pow(l, 2) * pdf * FW_PI);
+                    Ei += temp;
+                }
+            }
+
+            // Ray left the scene
+            else {
                 break;
             }
-        }*/
-
-		if (debugVis)
-		{
-			// Example code for using the visualization system. You can expand this to include further bounces, 
-			// shadow rays, and whatever other useful information you can think of.
-			PathVisualizationNode node;
-			node.lines.push_back(PathVisualizationLine(result.orig, result.point)); // Draws a line between two points
-			node.lines.push_back(PathVisualizationLine(result.point, result.point + result.tri->normal() * .1f, Vec3f(1,0,0))); // You can give lines a color as optional parameter.
-			node.labels.push_back(PathVisualizationLabel("diffuse: " + std::to_string(Ei.x) + ", " + std::to_string(Ei.y) + ", " + std::to_string(Ei.z), result.point)); // You can also render text labels with world-space locations.
-			
-			visualization.push_back(node);
-		}
+        }
 	}
-
 	return Ei;
 }
 
