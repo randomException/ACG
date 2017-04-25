@@ -24,6 +24,11 @@ Remember the other mandatory deliverables!
 
 (Describe what you did and, if there was a substantial amount of work involved, how you did it. If your extra features are interactive or can be toggled, describe how to use them.)
 
+- Implement some informative visualizer for your path tracer.
+	- Shoot visualized tracer paths by pressing Ctrl. There is following visualizations in addition for already given ones:
+		- Shadow ray as yellow.
+		- Trace paths which are shoot by russian roulette as blue.
+
 # Have you done extra credit work on previous rounds whose grading we have postponed to this round?
 
 (Are all the features integrated into your Assn4 submission? If not, point out which one of your submissions we should use to grade those features.)
