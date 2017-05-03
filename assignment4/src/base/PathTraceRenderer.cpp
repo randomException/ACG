@@ -14,6 +14,10 @@ namespace FW {
 	bool PathTraceRenderer::m_normalMapped = false;
 	bool PathTraceRenderer::debugVis = false;
 
+    //EXTRA: Emission triangles
+    bool PathTraceRenderer::m_EmissionTrianglesEnabled = false;
+    std::vector<RTTriangle> PathTraceRenderer::m_EmissionTriangles = std::vector<RTTriangle>();
+
 	void PathTraceRenderer::getTextureParameters(const RaycastResult& hit, Vec3f& diffuse, Vec3f& n, Vec3f& specular)
 	{
 		MeshBase::Material* mat = hit.tri->m_material;
@@ -137,6 +141,9 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
     Vec3f diffuse;
     float russianRoulette = 1.0f;
 
+    Vec3f lightNormal;
+    Vec3f lightEmission;
+
     int currentBounce = 0;
 	if (result.tri != nullptr)
 	{
@@ -144,23 +151,67 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
 		// Implement path tracing with direct light and shadows, scattering and Russian roulette.
 		//Ei = result.tri->m_material->diffuse.getXYZ(); // placeholder
 
+        if (m_EmissionTrianglesEnabled) {
+            if (result.tri->m_material->emission != Vec3f(0, 0, 0)) {
+                Ei = result.tri->m_material->emission;
+            }
+        }
+
         Vec3f n = result.tri->normal();
         if (FW::dot(n, result.dir) > 0) {
             n = -n;
         }
+        Vec3f lightPointTmp;
+        float pdfTmp;
+        
+        lightNormal = ctx.m_light->getNormal();
+        lightEmission = ctx.m_light->getEmission();
+        if (m_EmissionTrianglesEnabled) {
+            ctx.m_light->sample(pdfTmp, lightPointTmp, 0, rnd);
+            Vec3f largestEmissivePower = ctx.m_light->getSize().x * ctx.m_light->getSize().y * 4 * ctx.m_light->getEmission() /
+                pow((lightPointTmp - result.point).length(), 2);
+            float largestEmissionId = m_EmissionTriangles.size();
 
-        ctx.m_light->sample(pdf, lightPoint, 0, rnd);
+            for (int i = 0; i < m_EmissionTriangles.size(); i++) {
+                for (int i = 0; i < m_EmissionTriangles.size(); i++) {
+                    ctx.m_light->sampleEmissionTriangle(pdfTmp, lightPointTmp, 0, rnd, m_EmissionTriangles[i]);
+
+                    Vec3f emissivePower = m_EmissionTriangles[i].area() * m_EmissionTriangles[i].m_material->emission /
+                        pow((lightPointTmp - result.point).length(), 2);
+                    if (emissivePower.length() > largestEmissivePower.length()) {
+                        largestEmissionId = i;
+                    }
+                }
+            }
+
+            //int lightSourceId = (int) rnd.getF32(0, m_EmissionTriangles.size() + 0.99f); // int will be between 0 and Size
+            int lightSourceId = largestEmissionId;
+            
+            // Original light source
+            if (lightSourceId == m_EmissionTriangles.size()) {
+                ctx.m_light->sample(pdf, lightPoint, 0, rnd);
+            }
+            // Emission triangle
+            else {
+                ctx.m_light->sampleEmissionTriangle(pdf, lightPoint, 0, rnd, m_EmissionTriangles[lightSourceId]);
+                lightNormal = normalize(m_EmissionTriangles[lightSourceId].normal());
+                lightEmission = m_EmissionTriangles[lightSourceId].m_material->emission;
+            }
+        }
+        else {
+            ctx.m_light->sample(pdf, lightPoint, 0, rnd);
+        }
         Vec3f shadowRay = lightPoint - result.point;
         RaycastResult castedShadowRay = ctx.m_rt->raycast(result.point + n * 0.001f, shadowRay * 0.998f);
 
         getTextureParameters(result, diffuse, n, pHit->m_material->specular);
-        if (castedShadowRay.tri == nullptr && FW::dot(n, normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0)
+        if (castedShadowRay.tri == nullptr && FW::dot(n, normalize(shadowRay)) > 0 && FW::dot(normalize(lightNormal), normalize(-shadowRay)) > 0)
         {
             float l = shadowRay.length();
             float cos_li = FW::dot(n, normalize(shadowRay));
-            float cos_i = FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay));
+            float cos_i = FW::dot(normalize(lightNormal), normalize(-shadowRay));
 
-            Ei += ctx.m_light->getEmission() * diffuse * cos_li * cos_i / (pow(l, 2) * pdf * FW_PI);
+            Ei += lightEmission * diffuse * cos_li * cos_i / (pow(l, 2) * pdf * FW_PI);
         }
 
 
@@ -190,12 +241,13 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
                     node.lines.push_back(PathVisualizationLine(result.point, castedShadowRay.point, Vec3f(1, 1, 0)));
                 }
                 // Point sees the light source
-                else if (FW::dot(n, normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0){
+                else if (FW::dot(n, normalize(shadowRay)) > 0 && FW::dot(normalize(lightNormal), normalize(-shadowRay)) > 0){
                     node.lines.push_back(PathVisualizationLine(result.point, lightPoint, Vec3f(1, 1, 0)));
                 }
 
                 visualization.push_back(node);
-            }
+            } // end debugVis
+
             if (ctx.m_bounces == 0) {
                 break;
             }
@@ -239,19 +291,56 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
                     n = -n;
                 }
 
+
+                lightNormal = ctx.m_light->getNormal();
+                lightEmission = ctx.m_light->getEmission();
                 // Shadow ray from indirect light
-                ctx.m_light->sample(pdf, lightPoint, 0, rnd);
+                if (m_EmissionTrianglesEnabled) {
+                    ctx.m_light->sample(pdfTmp, lightPointTmp, 0, rnd);
+                    Vec3f largestEmissivePower = ctx.m_light->getSize().x * ctx.m_light->getSize().y * 4 * ctx.m_light->getEmission() /
+                        pow((lightPointTmp - result.point).length(), 2);
+                    float largestEmissionId = m_EmissionTriangles.size();
+
+                    for (int i = 0; i < m_EmissionTriangles.size(); i++) {
+                        for (int i = 0; i < m_EmissionTriangles.size(); i++) {
+                            ctx.m_light->sampleEmissionTriangle(pdfTmp, lightPointTmp, 0, rnd, m_EmissionTriangles[i]);
+
+                            Vec3f emissivePower = m_EmissionTriangles[i].area() * m_EmissionTriangles[i].m_material->emission /
+                                pow((lightPointTmp - result.point).length(), 2);
+                            if (emissivePower.length() > largestEmissivePower.length()) {
+                                largestEmissionId = i;
+                            }
+                        }
+                    }
+
+                    //int lightSourceId = (int) rnd.getF32(0, m_EmissionTriangles.size() + 0.99f); // int will be between 0 and Size
+                    int lightSourceId = largestEmissionId;
+
+                    // Original light source
+                    if (lightSourceId == m_EmissionTriangles.size()) {
+                        ctx.m_light->sample(pdf, lightPoint, 0, rnd);
+                    }
+                    // Emission triangle
+                    else {
+                        ctx.m_light->sampleEmissionTriangle(pdf, lightPoint, 0, rnd, m_EmissionTriangles[lightSourceId]);
+                        lightNormal = normalize(m_EmissionTriangles[lightSourceId].normal());
+                        lightEmission = m_EmissionTriangles[lightSourceId].m_material->emission;
+                    }
+                }
+                else {
+                    ctx.m_light->sample(pdf, lightPoint, 0, rnd);
+                }
                 shadowRay = lightPoint - result.point;
 
                 castedShadowRay = ctx.m_rt->raycast(result.point + n * 0.001f, shadowRay * 0.998f);
                 // trace shadow ray to see if it's blocked
-                if (castedShadowRay.tri == nullptr && FW::dot(n, normalize(shadowRay)) > 0 && FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay)) > 0)
+                if (castedShadowRay.tri == nullptr && FW::dot(n, normalize(shadowRay)) > 0 && FW::dot(normalize(lightNormal), normalize(-shadowRay)) > 0)
                 {
                     getTextureParameters(result, diffuse, n, result.tri->m_material->specular);
                     float l = shadowRay.length();
                     float cos_li = FW::dot(n, normalize(shadowRay));
-                    float cos_i = FW::dot(normalize(ctx.m_light->getNormal()), normalize(-shadowRay));
-                    Vec3f temp = throughput * ctx.m_light->getEmission() * diffuse * cos_li * cos_i / (pow(l, 2) * pdf * FW_PI);
+                    float cos_i = FW::dot(normalize(lightNormal), normalize(-shadowRay));
+                    Vec3f temp = throughput * lightEmission * diffuse * cos_li * cos_i / (pow(l, 2) * pdf * FW_PI);
                     Ei += temp;
                 }
             }

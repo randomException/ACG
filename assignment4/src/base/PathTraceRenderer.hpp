@@ -97,15 +97,17 @@ public:
     // negative #bounces = -N means start russian roulette from Nth bounce
     // positive N means always trace up to N bounces
     void				startPathTracingProcess				( const MeshWithColors* scene, AreaLight*, RayTracer* rt, Image* dest, int bounces, const CameraControls& camera );
-	static Vec3f				tracePath(float x, float y, PathTracerContext& ctx, int samplerBase, Random& rnd, std::vector<PathVisualizationNode>& visualization);
-	static void			pathTraceBlock(MulticoreLauncher::Task& t);
-	static void			getTextureParameters(const RaycastResult& hit, Vec3f& diffuse, Vec3f& n, Vec3f& specular);
+	static Vec3f	    tracePath                           (float x, float y, PathTracerContext& ctx, int samplerBase, Random& rnd, std::vector<PathVisualizationNode>& visualization);
+	static void			pathTraceBlock                      (MulticoreLauncher::Task& t);
+	static void			getTextureParameters                (const RaycastResult& hit, Vec3f& diffuse, Vec3f& n, Vec3f& specular);
     void				updatePicture						( Image* display );	// normalize by 1/w
     void				checkFinish							( void );
     void				stop								( void );
 	void				setNormalMapped						( bool b ){ m_normalMapped = b; }
 
-
+    // EXTRA: Emission triangles
+    void                setEmissionTriangles                (std::vector<RTTriangle> triangles) { m_EmissionTriangles = triangles; }
+    void                enableEmissionTriangles             (bool enabled) { m_EmissionTrianglesEnabled = enabled; }
 
 protected:
     __int64						m_s64TotalRays;
@@ -113,6 +115,10 @@ protected:
 
     MulticoreLauncher			m_launcher;
 	static bool					m_normalMapped;
+
+    // EXTRA: Emission triangles
+    static std::vector<RTTriangle> m_EmissionTriangles;
+    static bool                 m_EmissionTrianglesEnabled;
 };
 
 }	// namespace FW

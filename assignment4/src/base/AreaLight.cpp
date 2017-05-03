@@ -1,5 +1,6 @@
 
 #include "AreaLight.hpp"
+#include "RTTriangle.hpp"
 
 
 namespace FW {
@@ -20,9 +21,28 @@ void AreaLight::draw(const Mat4f& worldToCamera, const Mat4f& projection) {
     glEnd();
 }
 
+void AreaLight::sampleEmissionTriangle(float& pdf, Vec3f& p, int base, Random& rnd, RTTriangle tri) {
+    pdf = 1.0f / tri.area();
+
+    float t1 = rnd.getF32(0, 1);
+    float t2 = rnd.getF32(0, 1);
+    if (t1 + t2 > 1) {
+        t1 = 1 - t1;
+        t2 = 1 - t2;
+    }
+    float t3 = 1 - t1 - t2;
+
+    p = tri.centroid() +
+        t1 * (tri.m_vertices[0].p - tri.centroid()) +
+        t2 * (tri.m_vertices[1].p - tri.centroid()) +
+        t3 * (tri.m_vertices[2].p - tri.centroid());
+}
+
+
 void AreaLight::sample(float& pdf, Vec3f& p, int base, Random& rnd) {
     // YOUR CODE HERE (R1): Integrate your area light implementation.
-    
+   
+    // If doing Stratified OR Halton: 
     // Integrade these later to parameters as in assignment2
     int samplingMode = 0;
     int r = -1;

@@ -140,6 +140,10 @@ private:
 	std::vector<Vec3f>				    m_rtVertexPositions; // kept only for MD5 checksums
     std::vector<RTTriangle>				m_rtTriangles;
 
+    // EXTRA
+    std::vector<RTTriangle>				m_rtEmissionTriangles;
+    bool								m_useEmissionTriangles;
+
     std::unique_ptr<MeshWithColors>     m_mesh;
 	std::unique_ptr<AreaLight>          m_areaLight;
     std::unique_ptr<PathTraceRenderer>	m_pathtrace_renderer;

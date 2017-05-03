@@ -40,6 +40,7 @@ App::App(std::vector<std::string>& cmd_args)
 	m_lightSize(0.25f),
 	m_RTMode(false),
 	m_useRussianRoulette(false),
+    m_useEmissionTriangles(false),
 	m_normalMapped(false),
 	m_img(Vec2i(10, 10), ImageFormat::RGBA_Vec4f) // will get resized immediately
 {
@@ -90,7 +91,12 @@ App::App(std::vector<std::string>& cmd_args)
 	m_commonCtrl.addToggle(&m_useRussianRoulette, FW_KEY_NONE, "Use Russian Roulette", &clear_on_next_frame);
 	m_commonCtrl.addToggle(&m_normalMapped, FW_KEY_NONE, "Use normal mapping", &clear_on_next_frame);
 	m_commonCtrl.addToggle(&m_playbackVisualization, FW_KEY_NONE, "Visualization playback");
-	m_commonCtrl.beginSliderStack();
+    
+    // Extra: Emission triangles
+    m_commonCtrl.addSeparator();
+    m_commonCtrl.addToggle(&m_useEmissionTriangles, FW_KEY_NONE, "Extra: Use Emission Triangles", &clear_on_next_frame);
+	
+    m_commonCtrl.beginSliderStack();
 	m_commonCtrl.addSlider(&m_numBounces, 0, 8, false, FW_KEY_NONE, FW_KEY_NONE, "Number of indirect bounces= %d", 0, &clear_on_next_frame);
 	m_commonCtrl.addSlider(&m_lightSize, 0.01f, 200.0f, false, FW_KEY_NONE, FW_KEY_NONE, "Light source area= %f", 0, &clear_on_next_frame);
 	m_commonCtrl.endSliderStack();
@@ -421,6 +427,9 @@ bool App::handleEvent(const Window::Event& ev)
 				m_img.~Image();
 				new (&m_img) Image(m_window.getSize(), ImageFormat::RGBA_Vec4f);	// placement new, will get autodestructed
 			}
+            //Extra: Emission triangles
+            m_pathtrace_renderer->enableEmissionTriangles(m_useEmissionTriangles);
+
 			m_pathtrace_renderer->setNormalMapped(m_normalMapped);
 			m_pathtrace_renderer->startPathTracingProcess(m_mesh.get(), m_areaLight.get(), m_rt.get(), &m_img, m_useRussianRoulette ? -m_numBounces : m_numBounces, m_cameraCtrl);
 		}
@@ -530,7 +539,10 @@ void App::renderFrame(GLContext* gl)
 			new (&m_img) Image(m_window.getSize(), ImageFormat::RGBA_Vec4f);	// placement new, will get autodestructed
 		}
 
-		m_pathtrace_renderer->startPathTracingProcess(m_mesh.get(), m_areaLight.get(), m_rt.get(), &m_img, m_useRussianRoulette ? -m_numBounces : m_numBounces, m_cameraCtrl);
+        //Extra: Emission triangles
+        m_pathtrace_renderer->enableEmissionTriangles(m_useEmissionTriangles);
+		
+        m_pathtrace_renderer->startPathTracingProcess(m_mesh.get(), m_areaLight.get(), m_rt.get(), &m_img, m_useRussianRoulette ? -m_numBounces : m_numBounces, m_cameraCtrl);
 	}
 
 	glClearColor(0.2f, 0.4f, 0.8f, 1.0f);
@@ -856,6 +868,15 @@ void App::constructTracer()
 		m_results.build_time = (int)((stop.QuadPart - start.QuadPart) * 1000.0 / frequency.QuadPart); // Get timer result in milliseconds
 		std::cout << "Build time: " << m_results.build_time << " ms"<< std::endl;
 	}
+
+    // EXTRA EMISSION TRIANGLES
+    m_rtEmissionTriangles.clear();
+    for (auto i : m_rtTriangles) {
+        if (i.m_material->emission != Vec3f(0, 0, 0)) {
+            m_rtEmissionTriangles.push_back(i);
+        }
+    }
+    m_pathtrace_renderer->setEmissionTriangles(m_rtEmissionTriangles);
 
 }
 
