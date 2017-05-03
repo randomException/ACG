@@ -173,14 +173,12 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
             float largestEmissionId = m_EmissionTriangles.size();
 
             for (int i = 0; i < m_EmissionTriangles.size(); i++) {
-                for (int i = 0; i < m_EmissionTriangles.size(); i++) {
-                    ctx.m_light->sampleEmissionTriangle(pdfTmp, lightPointTmp, 0, rnd, m_EmissionTriangles[i]);
+                ctx.m_light->sampleEmissionTriangle(pdfTmp, lightPointTmp, 0, rnd, m_EmissionTriangles[i]);
 
-                    Vec3f emissivePower = m_EmissionTriangles[i].area() * m_EmissionTriangles[i].m_material->emission /
-                        pow((lightPointTmp - result.point).length(), 2);
-                    if (emissivePower.length() > largestEmissivePower.length()) {
-                        largestEmissionId = i;
-                    }
+                Vec3f emissivePower = m_EmissionTriangles[i].area() * m_EmissionTriangles[i].m_material->emission /
+                    pow((lightPointTmp - result.point).length(), 2);
+                if (emissivePower.length() > largestEmissivePower.length()) {
+                    largestEmissionId = i;
                 }
             }
 
@@ -204,7 +202,7 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
         Vec3f shadowRay = lightPoint - result.point;
         RaycastResult castedShadowRay = ctx.m_rt->raycast(result.point + n * 0.001f, shadowRay * 0.998f);
 
-        getTextureParameters(result, diffuse, n, pHit->m_material->specular);
+        getTextureParameters(result, diffuse, n, result.tri->m_material->specular);
         if (castedShadowRay.tri == nullptr && FW::dot(n, normalize(shadowRay)) > 0 && FW::dot(normalize(lightNormal), normalize(-shadowRay)) > 0)
         {
             float l = shadowRay.length();
@@ -302,14 +300,12 @@ Vec3f PathTraceRenderer::tracePath(float image_x, float image_y, PathTracerConte
                     float largestEmissionId = m_EmissionTriangles.size();
 
                     for (int i = 0; i < m_EmissionTriangles.size(); i++) {
-                        for (int i = 0; i < m_EmissionTriangles.size(); i++) {
-                            ctx.m_light->sampleEmissionTriangle(pdfTmp, lightPointTmp, 0, rnd, m_EmissionTriangles[i]);
-
-                            Vec3f emissivePower = m_EmissionTriangles[i].area() * m_EmissionTriangles[i].m_material->emission /
-                                pow((lightPointTmp - result.point).length(), 2);
-                            if (emissivePower.length() > largestEmissivePower.length()) {
-                                largestEmissionId = i;
-                            }
+                        ctx.m_light->sampleEmissionTriangle(pdfTmp, lightPointTmp, 0, rnd, m_EmissionTriangles[i]);
+                        
+                        Vec3f emissivePower = m_EmissionTriangles[i].area() * m_EmissionTriangles[i].m_material->emission /
+                            pow((lightPointTmp - result.point).length(), 2);
+                        if (emissivePower.length() > largestEmissivePower.length()) {
+                            largestEmissionId = i;
                         }
                     }
 

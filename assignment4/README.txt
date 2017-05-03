@@ -32,7 +32,7 @@ Remember the other mandatory deliverables!
 - Implement a system that supports light-emitting triangles in the scene.
 	- Light-emitting triangles only in Cornell scene.
 	- Enable/Disable with a button at the bottom of UI "Extra: Use Emission Triangles".
-	- Light triangles are samples according to their emissive power.
+	- Light triangles are sampled according to their emissive power.
 
 # Have you done extra credit work on previous rounds whose grading we have postponed to this round?
 
